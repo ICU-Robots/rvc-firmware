@@ -4,6 +4,7 @@
 
 static const int EFFECTOR_PIN = 5;
 static const int MICRO_STEPPING = 16;
+static const int LED_PIN = 4;
 
 Positioner positioner(A3, A4, A5, A0, A1, A2, MICRO_STEPPING, 2, 3);
 Servo end_effector;
@@ -12,6 +13,9 @@ void setup() {
     positioner.start();
     end_effector.attach(EFFECTOR_PIN);
     end_effector.write(10);
+
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
 
     Serial.begin(19200);
 }
@@ -46,6 +50,12 @@ void loop() {
                     end_effector.write(i);
                     delay(10);
                 }
+            case 'L':
+                digitalWrite(LED_PIN, HIGH);
+                break;
+            case 'O':
+                digitalWrite(LED_PIN, LOW);
+                break;
             default:
                 break;
         }

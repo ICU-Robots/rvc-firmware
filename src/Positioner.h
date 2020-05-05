@@ -11,7 +11,7 @@
 class Positioner {
 public:
     Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir, int microstepping,
-               int x_limit_pin, int y_limit_pin, int steps_per_rev = 200, int mm_per_rev = 40);
+               int x_child_select, int y_child_select, int steps_per_rev = 200, int mm_per_rev = 40);
 
     void start();
     void enable();
@@ -25,8 +25,9 @@ private:
     MultiStepper steppers;
     int micro_stepping;
     int x_enable, y_enable;
-    int x_limit_pin, y_limit_pin;
+    int x_child_select, y_child_select;
     int steps_per_mm;
+    uint32_t *data_buffer;
 };
 
 
