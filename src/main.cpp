@@ -6,7 +6,7 @@ static const int EFFECTOR_PIN = 5;
 static const int MICRO_STEPPING = 16;
 static const int LED_PIN = 4;
 
-Positioner positioner(A3, A4, A5, A0, A1, A2, MICRO_STEPPING, 2, 3);
+Positioner positioner(A3, A4, A5, A0, A1, A2, 3, 2);
 Servo end_effector;
 
 void setup() {
@@ -18,47 +18,80 @@ void setup() {
     digitalWrite(LED_PIN, LOW);
 
     Serial.begin(19200);
+    while (!Serial);
 }
 
 void loop() {
     if (Serial.available()) {
         int t = Serial.read();
-        double x, y;
+        float x, y;
 
         switch (t) {
-            case 'E':
+            case 'E': // Enable
                 positioner.enable();
                 break;
-            case 'D':
+            case 'D': // Disable
                 positioner.disable();
                 break;
-            case 'H':
+            case 'H': // Home
                 positioner.home();
                 break;
-            case 'M':
+            case 'M': // Move (absolute)
+                delay(10);
                 x = Serial.parseFloat();
                 y = Serial.parseFloat();
                 positioner.moveTo(x, y);
                 break;
-            case 'T':
+            case 'm': // Move (relative)
+                delay(10);
+                x = Serial.parseFloat();
+                y = Serial.parseFloat();
+                positioner.move(x, y);
+                break;
+            case 'S': // Stop
+                positioner.stop();
+                break;
+            case 'T': // Tap
                 for (int i = 10; i < 120; i++) {
                     end_effector.write(i);
-                    delay(10);
+                    delay(4);
                 }
-                delay(1500);
+                delay(50);
                 for (int i = 120; i >= 10; i--) {
                     end_effector.write(i);
-                    delay(10);
+                    delay(4);
                 }
-            case 'L':
+                break;
+            case 'P': // Press
+                for (int i = 10; i < 120; i++) {
+                    end_effector.write(i);
+                    delay(4);
+                }
+                break;
+            case 'R': // Release
+                for (int i = 120; i >= 10; i--) {
+                    end_effector.write(i);
+                    delay(4);
+                }
+                break;
+            case 'L': // LED On
                 digitalWrite(LED_PIN, HIGH);
                 break;
-            case 'O':
+            case 'O': // LED Off
                 digitalWrite(LED_PIN, LOW);
                 break;
             default:
                 break;
         }
     }
-    delay(10);
+
+    if (positioner.done() && !positioner.reported) {
+        Serial.print(positioner.xpos());
+        Serial.print('\t');
+        Serial.print(positioner.ypos());
+        Serial.println();
+        positioner.reported = true;
+    }
+
+    positioner.run();
 }

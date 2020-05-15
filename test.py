@@ -2,7 +2,7 @@ from time import sleep
 import serial
 import pygame
 
-ser = serial.Serial('COM4', 19200)
+ser = serial.Serial('COM5', 19200)
 
 
 def write(s):
@@ -13,7 +13,7 @@ sleep(3)
 write('E')
 sleep(.2)
 write('H')
-sleep(15)
+sleep(10)
 
 pygame.init()
 screen = pygame.display.set_mode([1900, 1100])
@@ -26,10 +26,12 @@ while running:
         # Did the user hit a key?
         if event.type == pygame.MOUSEBUTTONDOWN:
             x, y = pygame.mouse.get_pos()
-            print('M %.2f %.2f' % ((1920 - x) * 330.0 / 1200, -y * 330.0 / 1200))
-            write('M %.2f %.2f' % ((1920 - x) * 330.0 / 1200, -y * 330.0 / 1200))
+            print('M %.2f %.2f' % (-(1920 - x) * 330.0 / 1200, y * 330.0 / 1200))
+            write('M %.2f %.2f' % (-(1920 - x) * 330.0 / 1200, y * 330.0 / 1200))
             sleep(.1)
+            write('L')
             write('T')
+            write('O')
 
         # Did the user click the window close button? If so, stop the loop.
         elif event.type == pygame.QUIT:
