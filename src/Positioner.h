@@ -19,12 +19,13 @@ public:
     void moveTo(double x_mm, double y_mm);
     void move(double x_mm, double y_mm);
     void home();
-    void run();
+    bool run();
     void stop();
     float xpos();
     float ypos();
+    void report();
+
     bool reported;
-    bool done();
 
 private:
     AccelStepper x_stepper, y_stepper;

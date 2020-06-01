@@ -11,7 +11,7 @@
 #define SCK_PIN  13
 
 //TMC2130 registers
-#define WRITE_FLAG     0x0E //write flag
+#define WRITE_FLAG     (1<<7) //write flag
 #define READ_FLAG      (0<<7) //read flag
 #define REG_GCONF      0x00
 #define REG_GSTAT      0x01
@@ -148,8 +148,8 @@ void Positioner::home() {
 
 }
 
-void Positioner::run() {
-    steppers.run();
+bool Positioner::run() {
+    return steppers.run();
 }
 
 
@@ -162,13 +162,17 @@ float Positioner::ypos() {
 }
 
 void Positioner::stop() {
-    move(0, 0);
-    x_stepper.setSpeed(0);
-    y_stepper.setSpeed(0);
+    x_stepper.stop();
+    y_stepper.stop();
+    report();
 }
 
-bool Positioner::done() {
-    return !x_stepper.isRunning() && !y_stepper.isRunning();
+void Positioner::report() {
+    Serial.print(xpos());
+    Serial.print('\t');
+    Serial.print(ypos());
+    Serial.println();
+    reported = true;
 }
 
 uint8_t tmc_write(uint8_t cmd, uint32_t data, int child_select) {

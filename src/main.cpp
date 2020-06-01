@@ -3,7 +3,6 @@
 #include "Positioner.h"
 
 static const int EFFECTOR_PIN = 5;
-static const int MICRO_STEPPING = 16;
 static const int LED_PIN = 4;
 
 Positioner positioner(A3, A4, A5, A0, A1, A2, 3, 2);
@@ -85,13 +84,9 @@ void loop() {
         }
     }
 
-    if (positioner.done() && !positioner.reported) {
-        Serial.print(positioner.xpos());
-        Serial.print('\t');
-        Serial.print(positioner.ypos());
-        Serial.println();
-        positioner.reported = true;
+    if (!positioner.run() && !positioner.reported) {
+        positioner.report();
     }
 
-    positioner.run();
+
 }
