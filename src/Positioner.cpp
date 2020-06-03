@@ -11,23 +11,23 @@
 #define SCK_PIN  13
 
 //TMC2130 registers
-#define WRITE_FLAG     (1<<7) //write flag
+#define WRITE_FLAG     0x80U //write flag (1<<7)
 #define READ_FLAG      (0<<7) //read flag
-#define REG_GCONF      0x00
-#define REG_GSTAT      0x01
-#define REG_IHOLD_IRUN 0x10
-#define REG_CHOPCONF   0x6C
-#define REG_COOLCONF   0x6D
-#define REG_DCCTRL     0x6E
-#define REG_DRVSTATUS  0x6F
+#define REG_GCONF      0x00U
+#define REG_GSTAT      0x01U
+#define REG_IHOLD_IRUN 0x10U
+#define REG_CHOPCONF   0x6CU
+#define REG_COOLCONF   0x6DU
+#define REG_DCCTRL     0x6EU
+#define REG_DRVSTATUS  0x6FU
+
+#define STALL_THRESH   9
 
 uint8_t tmc_write(uint8_t cmd, uint32_t data, int child_select);
 
 uint8_t tmc_read(uint8_t cmd, uint32_t *data, int child_select);
 
 bool is_stalled(uint32_t *data, int child_select);
-
-static int stallcount = 0;
 
 
 Positioner::Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir,
@@ -44,7 +44,7 @@ Positioner::Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_
     steppers = MultiStepper();
 
     data_buffer = 0;
-    reported = false;
+    reported = true;
 }
 
 void Positioner::start() {
@@ -99,6 +99,8 @@ void Positioner::disable() {
 }
 
 void Positioner::moveTo(double x_mm, double y_mm) {
+    x_ref = x_stepper.currentPosition();
+    y_ref = y_stepper.currentPosition();
     long pos[] = {(long) (steps_per_mm * x_mm),
                   (long) (steps_per_mm * y_mm)};
     steppers.moveTo(pos);
@@ -106,6 +108,8 @@ void Positioner::moveTo(double x_mm, double y_mm) {
 }
 
 void Positioner::move(double x_mm, double y_mm) {
+    x_ref = x_stepper.currentPosition();
+    y_ref = y_stepper.currentPosition();
     long pos[] = {(long) (steps_per_mm * x_mm + x_stepper.currentPosition()),
                   (long) (steps_per_mm * y_mm + y_stepper.currentPosition())};
     steppers.moveTo(pos);
@@ -115,40 +119,51 @@ void Positioner::move(double x_mm, double y_mm) {
 void Positioner::home() {
     move(-70, 70);
     steppers.runSpeedToPosition();
+    delay(250);
+    x_stepper.setCurrentPosition(0);
+    y_stepper.setCurrentPosition(0);
 
     x_stepper.setSpeed(600.0f);
-    delay(250);
-    stallcount = 0;
-    for (int i = 0; i < 1600; i++)
+    while (x_stepper.currentPosition() < 20)
         x_stepper.runSpeed();
-    while (stallcount < 8) {
+    while (!is_stalled(&data_buffer, x_child_select)) {
         x_stepper.runSpeed();
-        is_stalled(&data_buffer, x_child_select);
     }
     delay(250);
     x_stepper.setCurrentPosition(0);
 
-    move(-120, 0);
+    move(-80, 0);
     steppers.runSpeedToPosition();
+    delay(250);
 
     y_stepper.setSpeed(-600.0f);
-    delay(250);
-    stallcount = 0;
-    for (int i = 0; i < 1600; i++)
+    while (y_stepper.currentPosition() > -20)
         y_stepper.runSpeed();
-    while (stallcount < 8) {
+    while (!is_stalled(&data_buffer, y_child_select)) {
         y_stepper.runSpeed();
-        is_stalled(&data_buffer, y_child_select);
     }
     delay(250);
     y_stepper.setCurrentPosition(0);
 
     moveTo(0, 0);
-    steppers.runSpeedToPosition();
-
 }
 
 bool Positioner::run() {
+    if (abs(x_stepper.currentPosition() - x_ref) > 20 && is_stalled(&data_buffer, x_child_select)) {
+        stop();
+        if (x_stepper.currentPosition() - x_ref < 0) {
+            move(10, 0);
+        } else {
+            move(-10, 0);
+        }
+    } else if (abs(y_stepper.currentPosition() - y_ref) > 20 && is_stalled(&data_buffer, y_child_select)) {
+        stop();
+        if (y_stepper.currentPosition() - y_ref < 0) {
+            move(0, 10);
+        } else {
+            move(0, -10);
+        }
+    }
     return steppers.run();
 }
 
@@ -162,6 +177,8 @@ float Positioner::ypos() {
 }
 
 void Positioner::stop() {
+    x_stepper.stop();
+    y_stepper.stop();
     x_stepper.stop();
     y_stepper.stop();
     report();
@@ -199,13 +216,13 @@ uint8_t tmc_read(uint8_t cmd, uint32_t *data, int child_select) {
     digitalWrite(child_select, LOW);
 
     s = SPI.transfer(cmd);
-    *data = SPI.transfer(0x00) & 0xFF;
-    *data <<= 8;
-    *data |= SPI.transfer(0x00) & 0xFF;
-    *data <<= 8;
-    *data |= SPI.transfer(0x00) & 0xFF;
-    *data <<= 8;
-    *data |= SPI.transfer(0x00) & 0xFF;
+    *data = SPI.transfer(0x00) & 0xFFU;
+    *data <<= 8U;
+    *data |= SPI.transfer(0x00) & 0xFFU;
+    *data <<= 8U;
+    *data |= SPI.transfer(0x00) & 0xFFU;
+    *data <<= 8U;
+    *data |= SPI.transfer(0x00) & 0xFFU;
 
     digitalWrite(child_select, HIGH);
 
@@ -213,15 +230,17 @@ uint8_t tmc_read(uint8_t cmd, uint32_t *data, int child_select) {
 }
 
 bool is_stalled(uint32_t *data, int child_select) {
+    static int stallcount[10];
+
     tmc_read(REG_DRVSTATUS, data, child_select);
 //    Serial.print(*data, HEX);
 //    Serial.print(' ');
 //    Serial.println(stallcount);
 
     if ((bool) (((*data) & 0x01000000UL) >> 24U))
-        stallcount++;
+        stallcount[child_select]++;
     else
-        stallcount = 0;
+        stallcount[child_select] = 0;
 
-    return (bool) (((*data) & 0x01000000UL) >> 24U);
+    return stallcount[child_select] >= STALL_THRESH;
 }

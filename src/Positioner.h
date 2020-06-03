@@ -33,6 +33,7 @@ private:
     int x_enable, y_enable;
     int x_child_select, y_child_select;
     int steps_per_mm;
+    long x_ref, y_ref;
     uint32_t data_buffer;
 };
 
