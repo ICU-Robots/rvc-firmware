@@ -22,6 +22,7 @@
 #define REG_DRVSTATUS  0x6FU
 
 #define STALL_THRESH   9
+#define MAX_SPEED      600.0f
 
 uint8_t tmc_write(uint8_t cmd, uint32_t data, int child_select);
 
@@ -44,14 +45,16 @@ Positioner::Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_
     steppers = MultiStepper();
 
     data_buffer = 0;
+    x_col_count = y_col_count = 0;
+    x_ref = y_ref = 0;
     reported = true;
 }
 
 void Positioner::start() {
     pinMode(x_enable, OUTPUT);
     pinMode(y_enable, OUTPUT);
-    digitalWrite(x_enable, HIGH);
-    digitalWrite(y_enable, HIGH);
+    disable();
+    enabled = false;
 
     pinMode(x_child_select, OUTPUT);
     pinMode(y_child_select, OUTPUT);
@@ -84,73 +87,84 @@ void Positioner::start() {
     steppers.addStepper(x_stepper);
     steppers.addStepper(y_stepper);
 
-    x_stepper.setMaxSpeed(600.0f);
-    y_stepper.setMaxSpeed(600.0f);
+    set_vel(1.0);
 }
 
 void Positioner::enable() {
     digitalWrite(x_enable, LOW);
     digitalWrite(y_enable, LOW);
+    enabled = true;
 }
 
 void Positioner::disable() {
     digitalWrite(x_enable, HIGH);
     digitalWrite(y_enable, HIGH);
+    enabled = false;
 }
 
 void Positioner::moveTo(double x_mm, double y_mm) {
-    x_ref = x_stepper.currentPosition();
-    y_ref = y_stepper.currentPosition();
-    long pos[] = {(long) (steps_per_mm * x_mm),
-                  (long) (steps_per_mm * y_mm)};
-    steppers.moveTo(pos);
-    reported = false;
+    if (enabled) {
+        x_ref = x_stepper.currentPosition();
+        y_ref = y_stepper.currentPosition();
+        long pos[] = {(long) (steps_per_mm * x_mm),
+                      (long) (steps_per_mm * y_mm)};
+        steppers.moveTo(pos);
+        reported = false;
+    }
 }
 
 void Positioner::move(double x_mm, double y_mm) {
-    x_ref = x_stepper.currentPosition();
-    y_ref = y_stepper.currentPosition();
-    long pos[] = {(long) (steps_per_mm * x_mm + x_stepper.currentPosition()),
-                  (long) (steps_per_mm * y_mm + y_stepper.currentPosition())};
-    steppers.moveTo(pos);
-    reported = false;
+    if (enabled) {
+        x_ref = x_stepper.currentPosition();
+        y_ref = y_stepper.currentPosition();
+        long pos[] = {(long) (steps_per_mm * x_mm + x_stepper.currentPosition()),
+                      (long) (steps_per_mm * y_mm + y_stepper.currentPosition())};
+        steppers.moveTo(pos);
+        reported = false;
+    }
 }
 
-void Positioner::home() {
-    move(-70, 70);
-    steppers.runSpeedToPosition();
-    delay(250);
-    x_stepper.setCurrentPosition(0);
-    y_stepper.setCurrentPosition(0);
+bool Positioner::home() {
+    if (enabled) {
+        move(-70, 70);
+        steppers.runSpeedToPosition();
+        delay(250);
+        x_stepper.setCurrentPosition(0);
+        y_stepper.setCurrentPosition(0);
 
-    x_stepper.setSpeed(600.0f);
-    while (x_stepper.currentPosition() < 20)
-        x_stepper.runSpeed();
-    while (!is_stalled(&data_buffer, x_child_select)) {
-        x_stepper.runSpeed();
+        x_stepper.setSpeed(MAX_SPEED);
+        while (x_stepper.currentPosition() < 20)
+            x_stepper.runSpeed();
+        while (!is_stalled(&data_buffer, x_child_select)) {
+            x_stepper.runSpeed();
+        }
+        delay(250);
+        x_stepper.setCurrentPosition(0);
+
+        move(-80, 0);
+        steppers.runSpeedToPosition();
+        delay(250);
+
+        y_stepper.setSpeed(-MAX_SPEED);
+        while (y_stepper.currentPosition() > -20)
+            y_stepper.runSpeed();
+        while (!is_stalled(&data_buffer, y_child_select)) {
+            y_stepper.runSpeed();
+        }
+        delay(250);
+        y_stepper.setCurrentPosition(0);
+
+        moveTo(0, 0);
+        return true;
+    } else {
+        return false;
     }
-    delay(250);
-    x_stepper.setCurrentPosition(0);
-
-    move(-80, 0);
-    steppers.runSpeedToPosition();
-    delay(250);
-
-    y_stepper.setSpeed(-600.0f);
-    while (y_stepper.currentPosition() > -20)
-        y_stepper.runSpeed();
-    while (!is_stalled(&data_buffer, y_child_select)) {
-        y_stepper.runSpeed();
-    }
-    delay(250);
-    y_stepper.setCurrentPosition(0);
-
-    moveTo(0, 0);
 }
 
 bool Positioner::run() {
     if (abs(x_stepper.currentPosition() - x_ref) > 20 && is_stalled(&data_buffer, x_child_select)) {
         stop();
+        x_col_count++;
         if (x_stepper.currentPosition() - x_ref < 0) {
             move(10, 0);
         } else {
@@ -158,6 +172,7 @@ bool Positioner::run() {
         }
     } else if (abs(y_stepper.currentPosition() - y_ref) > 20 && is_stalled(&data_buffer, y_child_select)) {
         stop();
+        y_col_count++;
         if (y_stepper.currentPosition() - y_ref < 0) {
             move(0, 10);
         } else {
@@ -188,8 +203,17 @@ void Positioner::report() {
     Serial.print(xpos());
     Serial.print('\t');
     Serial.print(ypos());
+    Serial.print('\t');
+    Serial.print(x_col_count);
+    Serial.print('\t');
+    Serial.print(y_col_count);
     Serial.println();
     reported = true;
+}
+
+void Positioner::set_vel(float scale) {
+    x_stepper.setMaxSpeed(MAX_SPEED * scale);
+    y_stepper.setMaxSpeed(MAX_SPEED * scale);
 }
 
 uint8_t tmc_write(uint8_t cmd, uint32_t data, int child_select) {

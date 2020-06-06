@@ -33,7 +33,10 @@ void loop() {
                 positioner.disable();
                 break;
             case 'H': // Home
-                positioner.home();
+                if (positioner.home())
+                    Serial.println("T");
+                else
+                    Serial.println("F");
                 break;
             case 'M': // Move (absolute)
                 delay(10);
@@ -79,6 +82,9 @@ void loop() {
             case 'O': // LED Off
                 digitalWrite(LED_PIN, LOW);
                 break;
+            case 'V':
+                x = Serial.parseFloat();
+                positioner.set_vel(x);
             default:
                 break;
         }

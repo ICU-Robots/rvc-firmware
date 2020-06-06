@@ -18,12 +18,13 @@ public:
     void disable();
     void moveTo(double x_mm, double y_mm);
     void move(double x_mm, double y_mm);
-    void home();
+    bool home();
     bool run();
     void stop();
     float xpos();
     float ypos();
     void report();
+    void set_vel(float scale);
 
     bool reported;
 
@@ -32,8 +33,10 @@ private:
     MultiStepper steppers;
     int x_enable, y_enable;
     int x_child_select, y_child_select;
+    int x_col_count, y_col_count;
     int steps_per_mm;
     long x_ref, y_ref;
+    bool enabled;
     uint32_t data_buffer;
 };
 
