@@ -34,6 +34,7 @@ private:
     int x_enable, y_enable;
     int x_child_select, y_child_select;
     int x_col_count, y_col_count;
+    long x_bound, y_bound;
     int steps_per_mm;
     long x_ref, y_ref;
     bool enabled;

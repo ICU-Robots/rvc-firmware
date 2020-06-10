@@ -106,8 +106,8 @@ void Positioner::moveTo(double x_mm, double y_mm) {
     if (enabled) {
         x_ref = x_stepper.currentPosition();
         y_ref = y_stepper.currentPosition();
-        long pos[] = {(long) (steps_per_mm * x_mm),
-                      (long) (steps_per_mm * y_mm)};
+        long pos[] = {max(x_bound, min(0, (long) (steps_per_mm * x_mm))),
+                      max(0, min(y_bound, (long) (steps_per_mm * y_mm)))};
         steppers.moveTo(pos);
         reported = false;
     }
@@ -117,8 +117,8 @@ void Positioner::move(double x_mm, double y_mm) {
     if (enabled) {
         x_ref = x_stepper.currentPosition();
         y_ref = y_stepper.currentPosition();
-        long pos[] = {(long) (steps_per_mm * x_mm + x_stepper.currentPosition()),
-                      (long) (steps_per_mm * y_mm + y_stepper.currentPosition())};
+        long pos[] = {max(x_bound, min(0, (long) (steps_per_mm * x_mm + x_stepper.currentPosition()))),
+                      max(0, min(y_bound, (long) (steps_per_mm * y_mm + y_stepper.currentPosition())))};
         steppers.moveTo(pos);
         reported = false;
     }
@@ -126,11 +126,17 @@ void Positioner::move(double x_mm, double y_mm) {
 
 bool Positioner::home() {
     if (enabled) {
-        move(-70, 70);
-        steppers.runSpeedToPosition();
-        delay(250);
         x_stepper.setCurrentPosition(0);
         y_stepper.setCurrentPosition(0);
+
+        x_stepper.setSpeed(-MAX_SPEED);
+        while (x_stepper.currentPosition() > -20)
+            x_stepper.runSpeed();
+        while (!is_stalled(&data_buffer, x_child_select)) {
+            x_stepper.runSpeed();
+        }
+        delay(250);
+        x_stepper.setCurrentPosition(0);
 
         x_stepper.setSpeed(MAX_SPEED);
         while (x_stepper.currentPosition() < 20)
@@ -139,11 +145,21 @@ bool Positioner::home() {
             x_stepper.runSpeed();
         }
         delay(250);
+        x_bound = -x_stepper.currentPosition() + 20;
         x_stepper.setCurrentPosition(0);
 
         move(-80, 0);
         steppers.runSpeedToPosition();
         delay(250);
+
+        y_stepper.setSpeed(MAX_SPEED);
+        while (y_stepper.currentPosition() < 20)
+            y_stepper.runSpeed();
+        while (!is_stalled(&data_buffer, y_child_select)) {
+            y_stepper.runSpeed();
+        }
+        delay(250);
+        y_stepper.setCurrentPosition(0);
 
         y_stepper.setSpeed(-MAX_SPEED);
         while (y_stepper.currentPosition() > -20)
@@ -152,6 +168,7 @@ bool Positioner::home() {
             y_stepper.runSpeed();
         }
         delay(250);
+        y_bound = -y_stepper.currentPosition() - 20;
         y_stepper.setCurrentPosition(0);
 
         moveTo(0, 0);
