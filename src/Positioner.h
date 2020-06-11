@@ -23,7 +23,7 @@ public:
     void stop();
     float xpos();
     float ypos();
-    void report();
+    void report(bool eom);
     void set_vel(float scale);
 
     bool reported;

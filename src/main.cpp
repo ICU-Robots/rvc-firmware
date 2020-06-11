@@ -2,11 +2,14 @@
 #include <Servo.h>
 #include "Positioner.h"
 
+#define PERIOD 200 // ms
+
 static const int EFFECTOR_PIN = 5;
 static const int LED_PIN = 4;
 
 Positioner positioner(A3, A4, A5, A0, A1, A2, 3, 2);
 Servo end_effector;
+unsigned long lt;
 
 void setup() {
     positioner.start();
@@ -15,6 +18,8 @@ void setup() {
 
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
+
+    lt = millis();
 
     Serial.begin(19200);
     while (!Serial);
@@ -91,7 +96,13 @@ void loop() {
     }
 
     if (!positioner.run() && !positioner.reported) {
-        positioner.report();
+        positioner.report(true);
+        lt = millis();
+    }
+
+    if (millis() - lt >= PERIOD) {
+        positioner.report(false);
+        lt = millis();
     }
 
 

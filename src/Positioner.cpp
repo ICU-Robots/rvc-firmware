@@ -172,7 +172,7 @@ bool Positioner::home() {
         y_stepper.setCurrentPosition(0);
 
         moveTo(0, 0);
-        return true;
+        return !(x_bound > -400 || y_bound < 300); //if bounds are unrealistically small, return failure to home
     } else {
         return false;
     }
@@ -213,10 +213,10 @@ void Positioner::stop() {
     y_stepper.stop();
     x_stepper.stop();
     y_stepper.stop();
-    report();
+    report(true);
 }
 
-void Positioner::report() {
+void Positioner::report(bool eom) {
     Serial.print(xpos());
     Serial.print('\t');
     Serial.print(ypos());
@@ -224,8 +224,16 @@ void Positioner::report() {
     Serial.print(x_col_count);
     Serial.print('\t');
     Serial.print(y_col_count);
+    if (eom) {
+        Serial.print('\t');
+        Serial.print('F'); // finished moving
+        reported = true;
+    } else {
+        Serial.print('\t');
+        Serial.print('M'); // still moving
+    }
     Serial.println();
-    reported = true;
+
 }
 
 void Positioner::set_vel(float scale) {
