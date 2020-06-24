@@ -31,14 +31,16 @@ uint8_t tmc_read(uint8_t cmd, uint32_t *data, int child_select);
 bool is_stalled(uint32_t *data, int child_select);
 
 
-Positioner::Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir,
-                       int x_child_select, int y_child_select, int steps_per_rev, int mm_per_rev) {
+Positioner::Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir, int x_child_select,
+                       int y_child_select, int steps_per_rev, int mm_per_rev, int microstepping) {
     this->x_enable = x_enable;
     this->y_enable = y_enable;
     this->x_child_select = x_child_select;
     this->y_child_select = y_child_select;
+    this->microstepping = microstepping;
 
-    steps_per_mm = steps_per_rev / mm_per_rev;
+    steps_per_mm = steps_per_rev / mm_per_rev * microstepping;
+
 
     x_stepper = AccelStepper(AccelStepper::DRIVER, x_step, x_dir);
     y_stepper = AccelStepper(AccelStepper::DRIVER, y_step, y_dir);
@@ -71,8 +73,11 @@ void Positioner::start() {
     SPI.begin();
     SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE3));
 
+    uint32_t mres = 8;
+    while (microstepping > 1UL << (uint32_t) (8 - mres))
+        mres--;
 
-    uint32_t microstepping_data = 0x18008008UL;
+    uint32_t microstepping_data = 0x10008008UL | (uint32_t) (mres << 24U);
 
     tmc_write(WRITE_FLAG | REG_GCONF, 0x00000001UL, x_child_select); //voltage on AIN is current reference
     tmc_write(WRITE_FLAG | REG_IHOLD_IRUN, 0x00001010UL, x_child_select); //IHOLD=0x10, IRUN=0x10
@@ -129,7 +134,7 @@ bool Positioner::home() {
         x_stepper.setCurrentPosition(0);
         y_stepper.setCurrentPosition(0);
 
-        x_stepper.setSpeed(-MAX_SPEED);
+        x_stepper.setSpeed(-MAX_SPEED * microstepping);
         while (x_stepper.currentPosition() > -20)
             x_stepper.runSpeed();
         while (!is_stalled(&data_buffer, x_child_select)) {
@@ -138,7 +143,7 @@ bool Positioner::home() {
         delay(250);
         x_stepper.setCurrentPosition(0);
 
-        x_stepper.setSpeed(MAX_SPEED);
+        x_stepper.setSpeed(MAX_SPEED * microstepping);
         while (x_stepper.currentPosition() < 20)
             x_stepper.runSpeed();
         while (!is_stalled(&data_buffer, x_child_select)) {
@@ -152,7 +157,7 @@ bool Positioner::home() {
         steppers.runSpeedToPosition();
         delay(250);
 
-        y_stepper.setSpeed(MAX_SPEED);
+        y_stepper.setSpeed(MAX_SPEED * microstepping);
         while (y_stepper.currentPosition() < 20)
             y_stepper.runSpeed();
         while (!is_stalled(&data_buffer, y_child_select)) {
@@ -161,7 +166,7 @@ bool Positioner::home() {
         delay(250);
         y_stepper.setCurrentPosition(0);
 
-        y_stepper.setSpeed(-MAX_SPEED);
+        y_stepper.setSpeed(-MAX_SPEED * microstepping);
         while (y_stepper.currentPosition() > -20)
             y_stepper.runSpeed();
         while (!is_stalled(&data_buffer, y_child_select)) {
@@ -237,8 +242,8 @@ void Positioner::report(bool eom) {
 }
 
 void Positioner::set_vel(float scale) {
-    x_stepper.setMaxSpeed(MAX_SPEED * scale);
-    y_stepper.setMaxSpeed(MAX_SPEED * scale);
+    x_stepper.setMaxSpeed(MAX_SPEED * scale * (float) microstepping);
+    y_stepper.setMaxSpeed(MAX_SPEED * scale * (float) microstepping);
 }
 
 uint8_t tmc_write(uint8_t cmd, uint32_t data, int child_select) {

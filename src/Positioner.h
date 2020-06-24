@@ -10,8 +10,8 @@
 
 class Positioner {
 public:
-    Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir,
-               int x_child_select, int y_child_select, int steps_per_rev = 200, int mm_per_rev = 40);
+    Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir, int x_child_select,
+               int y_child_select, int steps_per_rev = 200, int mm_per_rev = 40, int microstepping = 4);
 
     void start();
     void enable();
@@ -31,6 +31,7 @@ public:
 private:
     AccelStepper x_stepper, y_stepper;
     MultiStepper steppers;
+    int microstepping;
     int x_enable, y_enable;
     int x_child_select, y_child_select;
     int x_col_count, y_col_count;
