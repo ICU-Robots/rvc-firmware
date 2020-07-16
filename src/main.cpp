@@ -61,12 +61,12 @@ void loop() {
             case 'T': // Tap
                 for (int i = 10; i < 120; i++) {
                     end_effector.write(i);
-                    delay(4);
+                    delay(2);
                 }
-                delay(50);
+                delay(20);
                 for (int i = 120; i >= 10; i--) {
                     end_effector.write(i);
-                    delay(4);
+                    delay(2);
                 }
                 break;
             case 'P': // Press

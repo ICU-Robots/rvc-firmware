@@ -11,7 +11,7 @@
 class Positioner {
 public:
     Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_step, int y_dir, int x_child_select,
-               int y_child_select, int steps_per_rev = 200, int mm_per_rev = 40, int microstepping = 4);
+               int y_child_select, int steps_per_rev = 200, int mm_per_rev = 40, int microstepping = 1);
 
     void start();
     void enable();
