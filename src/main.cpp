@@ -29,6 +29,7 @@ void loop() {
     if (Serial.available()) {
         int t = Serial.read();
         float x, y;
+        int r, d;
 
         switch (t) {
             case 'E': // Enable
@@ -59,14 +60,17 @@ void loop() {
                 positioner.stop();
                 break;
             case 'T': // Tap
-                for (int i = 10; i < 120; i++) {
+                r = Serial.parseInt(); // Rate
+                d = Serial.parseInt(); // Dwell
+
+                for (int i = 10; i < 120; i += r) {
                     end_effector.write(i);
-                    delay(2);
+                    delay(4);
                 }
-                delay(20);
-                for (int i = 120; i >= 10; i--) {
+                delay(d);
+                for (int i = 120; i >= 10; i -= r) {
                     end_effector.write(i);
-                    delay(2);
+                    delay(4);
                 }
                 break;
             case 'P': // Press
