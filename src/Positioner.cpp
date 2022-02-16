@@ -23,6 +23,7 @@
 
 #define STALL_THRESH   9
 #define MAX_SPEED      600.0f
+#define ACCELERATION   100.0f
 
 uint8_t tmc_write(uint8_t cmd, uint32_t data, int child_select);
 
@@ -44,7 +45,7 @@ Positioner::Positioner(int x_enable, int x_step, int x_dir, int y_enable, int y_
 
     x_stepper = AccelStepper(AccelStepper::DRIVER, x_step, x_dir);
     y_stepper = AccelStepper(AccelStepper::DRIVER, y_step, y_dir);
-    steppers = MultiStepper();
+    steppers = MultiStepper(MAX_SPEED * (float) microstepping, ACCELERATION * (float) microstepping);
 
     data_buffer = 0;
     x_col_count = y_col_count = 0;
@@ -134,7 +135,7 @@ bool Positioner::home() {
         x_stepper.setCurrentPosition(0);
         y_stepper.setCurrentPosition(0);
 
-        x_stepper.setSpeed(-MAX_SPEED * microstepping);
+        x_stepper.setSpeed(-MAX_SPEED * (float) microstepping);
         while (x_stepper.currentPosition() > -20)
             x_stepper.runSpeed();
         while (!is_stalled(&data_buffer, x_child_select)) {
@@ -143,7 +144,7 @@ bool Positioner::home() {
         delay(250);
         x_stepper.setCurrentPosition(0);
 
-        x_stepper.setSpeed(MAX_SPEED * microstepping);
+        x_stepper.setSpeed(MAX_SPEED * (float) microstepping);
         while (x_stepper.currentPosition() < 20)
             x_stepper.runSpeed();
         while (!is_stalled(&data_buffer, x_child_select)) {
@@ -157,7 +158,7 @@ bool Positioner::home() {
         steppers.runSpeedToPosition();
         delay(250);
 
-        y_stepper.setSpeed(MAX_SPEED * microstepping);
+        y_stepper.setSpeed(MAX_SPEED * (float) microstepping);
         while (y_stepper.currentPosition() < 20)
             y_stepper.runSpeed();
         while (!is_stalled(&data_buffer, y_child_select)) {
@@ -166,7 +167,7 @@ bool Positioner::home() {
         delay(250);
         y_stepper.setCurrentPosition(0);
 
-        y_stepper.setSpeed(-MAX_SPEED * microstepping);
+        y_stepper.setSpeed(-MAX_SPEED * (float) microstepping);
         while (y_stepper.currentPosition() > -20)
             y_stepper.runSpeed();
         while (!is_stalled(&data_buffer, y_child_select)) {
