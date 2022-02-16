@@ -8,13 +8,12 @@ static const int EFFECTOR_PIN = 5;
 static const int LED_PIN = 4;
 
 Positioner positioner(A3, A4, A5, A0, A1, A2, 3, 2);
-Servo end_effector;
 unsigned long lt;
 
 void setup() {
+    pinMode(EFFECTOR_PIN, OUTPUT);
+    digitalWrite(EFFECTOR_PIN, LOW);
     positioner.start();
-    end_effector.attach(EFFECTOR_PIN);
-    end_effector.write(10);
 
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
@@ -63,27 +62,15 @@ void loop() {
                 r = Serial.parseInt(); // Rate
                 d = Serial.parseInt(); // Dwell
 
-                for (int i = 10; i < 120; i += r) {
-                    end_effector.write(i);
-                    delay(4);
-                }
+                digitalWrite(EFFECTOR_PIN, HIGH);
                 delay(d);
-                for (int i = 120; i >= 10; i -= r) {
-                    end_effector.write(i);
-                    delay(4);
-                }
+                digitalWrite(EFFECTOR_PIN, LOW);
                 break;
             case 'P': // Press
-                for (int i = 10; i < 120; i++) {
-                    end_effector.write(i);
-                    delay(4);
-                }
+                digitalWrite(EFFECTOR_PIN, HIGH);
                 break;
             case 'R': // Release
-                for (int i = 120; i >= 10; i--) {
-                    end_effector.write(i);
-                    delay(4);
-                }
+                digitalWrite(EFFECTOR_PIN, LOW);
                 break;
             case 'L': // LED On
                 digitalWrite(LED_PIN, HIGH);
